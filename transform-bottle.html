@@ -1,0 +1,137 @@
+<!doctype html>
+<!-- Deploy: rename this file to index.html, place it in the repository root,
+     and import into Vercel with Framework Preset “Other”, no Build Command,
+     and Output Directory “.”. No build step or external assets are needed
+     beyond the pinned Three.js CDN. Refill releases three small blue drops. -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f3f2f1"><title>Transform water bottle</title>
+<style>
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#f3f2f1;color:#0b0c0c;font-family:Arial,Helvetica,sans-serif}canvas{display:block;touch-action:none}.toolbar{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;z-index:2}button{font:600 13px Arial,sans-serif;border:1px solid #b1b4b6;background:white;color:#0b0c0c;border-radius:4px;padding:12px 16px;cursor:pointer;white-space:nowrap;box-shadow:0 2px 0 #b1b4b6}button:hover{background:#ffdd00}button:focus-visible,canvas:focus-visible{outline:3px solid #ffdd00;outline-offset:3px}.zoom{display:flex;margin-left:3px}.zoom button{font-size:22px;font-weight:400;width:43px;height:43px;padding:0;background:transparent;box-shadow:none;color:#505a5f}.zoom button:first-child{border-radius:4px 0 0 4px}.zoom button:last-child{border-radius:0 4px 4px 0;border-left:0}.zoom button:hover{background:white}.hint{position:absolute;bottom:36px;left:30px;color:#505a5f;font-size:11px;line-height:1.8;pointer-events:none}#refill:disabled{opacity:.65;cursor:default}#error{position:absolute;top:42%;left:15%;right:15%;padding:20px;background:white;text-align:center;z-index:4}#error:empty{display:none}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}@media(max-width:850px){.hint{bottom:92px;left:0;width:100%;text-align:center}.hint br{display:none}.toolbar{bottom:27px}}@media(max-width:420px){button{font-size:12px;padding:12px 11px}.toolbar{gap:6px}.zoom button{width:37px}.hint{font-size:10px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div class="hint">Drag to rotate · Scroll or + / − to zoom<br>Right-drag to pan · Pinch on touch</div>
+<div class="toolbar" role="group" aria-label="Bottle controls"><button id="flip">Front / Back</button><button id="reset">Reset view</button><button id="refill" title="Refill the bottle and release a few blue drops">Refill</button><div class="zoom" role="group" aria-label="Zoom"><button id="out" aria-label="Zoom out">−</button><button id="in" aria-label="Zoom in">+</button></div></div>
+<div id="status" class="sr" role="status" aria-live="polite">Ready to refill.</div><div id="error" role="alert"></div>
+<script type="module">
+try{
+const THREE=await import('three');
+const {OrbitControls}=await import('three/addons/controls/OrbitControls.js');
+const {RoomEnvironment}=await import('three/addons/environments/RoomEnvironment.js');
+const C={blue:'#1d70b8',yellow:'#ffdd00',black:'#0b0c0c',light:'#f3f2f1',grey:'#505a5f',white:'#ffffff'};
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const scene=new THREE.Scene();scene.background=new THREE.Color(C.light);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;document.body.prepend(renderer.domElement);renderer.domElement.tabIndex=0;renderer.domElement.setAttribute('aria-label','Glossy orange Transform water bottle with a bamboo cap and black side carry loop. Drag to rotate. Use arrow keys to orbit, plus and minus to zoom, F for front or back, R to reset and W to refill.');
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,.025,100);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.07;controls.minDistance=4.5;controls.maxDistance=20;controls.maxTargetRadius=1.6;controls.rotateSpeed=.65;controls.zoomSpeed=.7;controls.panSpeed=.6;controls.minPolarAngle=.08;controls.maxPolarAngle=Math.PI-.08;controls.autoRotate=!reduced;controls.autoRotateSpeed=.45;
+const pmrem=new THREE.PMREMGenerator(renderer),room=new RoomEnvironment(),env=pmrem.fromScene(room,.06);scene.environment=env.texture;scene.environmentIntensity=.65;room.dispose();pmrem.dispose();
+scene.add(new THREE.HemisphereLight(C.white,C.grey,2.1));
+for(const [x,y,z,power] of [[-5,7,6,3],[5,3,0,1.2],[-3,5,-6,2.3]]){const light=new THREE.DirectionalLight(C.white,power);light.position.set(x,y,z);scene.add(light);}
+function texture(w,h,paint){const c=document.createElement('canvas');c.width=w;c.height=h;paint(c.getContext('2d'),w,h);return new THREE.CanvasTexture(c);}
+// Reference-led model: orange enamel, tall bamboo cap, black hinged loop,
+// and a single white wordmark. Unseen rear surfaces are left unprinted.
+const bottle=new THREE.Group();scene.add(bottle);
+function mesh(g,m,parent=bottle){const o=new THREE.Mesh(g,m);parent.add(o);return o;}
+function cylinder(radius,height,y,material){const o=mesh(new THREE.CylinderGeometry(radius,radius,height,128),material);o.position.y=y;return o;}
+function ring(radius,thickness,y,material){const o=mesh(new THREE.TorusGeometry(radius,thickness,12,128),material);o.rotation.x=Math.PI/2;o.position.y=y;return o;}
+function turned(profile,material){const curve=new THREE.CatmullRomCurve3(profile.map(p=>new THREE.Vector3(p[0],p[1],0)),false,'centripetal');const points=curve.getPoints(320).map(p=>new THREE.Vector2(Math.max(.0001,p.x),p.y));return mesh(new THREE.LatheGeometry(points,160),material);}
+let seed=94;function random(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+const ORANGE='#ef4c00';
+const enamel=new THREE.MeshPhysicalMaterial({color:ORANGE,metalness:.12,roughness:.22,clearcoat:1,clearcoatRoughness:.105,envMapIntensity:.85});
+const rubber=new THREE.MeshStandardMaterial({color:'#171c1d',roughness:.68});
+const strapMat=new THREE.MeshPhysicalMaterial({color:'#172023',roughness:.48,clearcoat:.12,side:THREE.DoubleSide});
+const steel=new THREE.MeshStandardMaterial({color:'#9fa5a5',metalness:.87,roughness:.32});
+const body=turned([[0,-1.805],[.47,-1.805],[.62,-1.798],[.683,-1.767],[.713,-1.714],[.723,-1.63],[.725,-1.4],[.725,-.9],[.725,-.4],[.725,.1],[.725,.6],[.725,.97],[.718,1.12],[.683,1.29],[.601,1.435],[.512,1.514],[.49,1.57],[.49,1.65]],enamel);
+// Only a fine bottom edge is exposed; there is no large rubber boot in the reference.
+cylinder(.623,.018,-1.807,rubber);ring(.663,.006,-1.788,steel);
+cylinder(.485,.045,1.622,rubber);
+// Bamboo side grain: warm longitudinal fibres, natural nodes and subtle bands.
+const bambooMap=texture(2048,1024,(c,w,h)=>{
+ c.fillStyle='#c2985b';c.fillRect(0,0,w,h);
+ for(let i=0;i<2200;i++){const x=random()*w,y=random()*h,length=20+random()*370;c.strokeStyle=random()>.45?`rgba(97,58,23,${.015+random()*.085})`:`rgba(255,228,172,${.025+random()*.13})`;c.lineWidth=.4+random()*2.3;c.beginPath();c.moveTo(x,y);c.bezierCurveTo(x+random()*8-4,y+length*.3,x+random()*10-5,y+length*.7,x+random()*5,y+length);c.stroke();}
+ for(const [y,alpha]of [[222,.055],[658,.07],[821,.035]]){const g=c.createLinearGradient(0,y-16,0,y+30);g.addColorStop(0,'rgba(106,63,26,0)');g.addColorStop(.5,`rgba(106,63,26,${alpha})`);g.addColorStop(1,'rgba(106,63,26,0)');c.fillStyle=g;c.fillRect(0,y-16,w,46);}
+ for(let i=0;i<90;i++){const x=random()*w,y=random()*h;c.fillStyle='rgba(84,52,22,.11)';c.fillRect(x,y,1+random()*2,3+random()*10);}
+});bambooMap.colorSpace=THREE.SRGBColorSpace;bambooMap.wrapS=THREE.RepeatWrapping;bambooMap.anisotropy=renderer.capabilities.getMaxAnisotropy();
+const bamboo=new THREE.MeshPhysicalMaterial({map:bambooMap,roughness:.62,metalness:0,bumpMap:bambooMap,bumpScale:.0025,clearcoat:.07});
+const cap=turned([[.485,1.637],[.547,1.637],[.576,1.66],[.585,1.704],[.588,1.9],[.59,2.18],[.585,2.325],[.573,2.382],[.531,2.409],[.49,2.414]],bamboo);
+const capUV=cap.geometry.attributes.uv,capP=cap.geometry.attributes.position;for(let i=0;i<capP.count;i++)capUV.setY(i,(capP.getY(i)-1.637)/.78);capUV.needsUpdate=true;
+const woodTop=texture(1024,1024,(c,w,h)=>{
+ c.fillStyle='#cba269';c.fillRect(0,0,w,h);c.save();c.translate(w/2,h/2);c.rotate(-.48);
+ for(let i=0;i<1250;i++){const x=random()*1600-800,y=random()*1600-800;c.strokeStyle=random()>.4?`rgba(119,75,32,${random()*.1})`:`rgba(255,231,185,${random()*.18})`;c.lineWidth=.5+random()*2;c.beginPath();c.moveTo(x,y);c.lineTo(x+180+random()*650,y+random()*5);c.stroke();}c.restore();
+});woodTop.colorSpace=THREE.SRGBColorSpace;woodTop.anisotropy=renderer.capabilities.getMaxAnisotropy();
+const top=mesh(new THREE.CircleGeometry(.535,128),new THREE.MeshStandardMaterial({map:woodTop,roughness:.62,bumpMap:woodTop,bumpScale:.0015}));top.rotation.x=-Math.PI/2;top.position.y=2.413;
+// Flat black carry strap hangs out to the left from the cap, rather than over it.
+// Swept rectangular section preserves the broad ribbon and its open centre.
+const strapCurve=new THREE.CatmullRomCurve3([
+ new THREE.Vector3(-.415,2.045,.42),new THREE.Vector3(-.61,1.91,.57),new THREE.Vector3(-.80,1.79,.40),new THREE.Vector3(-.87,1.785,.05),new THREE.Vector3(-.77,1.85,-.35),new THREE.Vector3(-.57,2.025,-.51),new THREE.Vector3(-.385,2.11,-.455)
+]);
+function ribbon(curve){const positions=[],indices=[],uv=[];const count=100;for(let i=0;i<=count;i++){const t=i/count,p=curve.getPoint(t),tangent=curve.getTangent(t).normalize(),width=new THREE.Vector3(0,1,0);width.addScaledVector(tangent,-width.dot(tangent)).normalize();const normal=new THREE.Vector3().crossVectors(tangent,width).normalize();for(const [a,b]of [[-1,-1],[1,-1],[1,1],[-1,1]]){const q=p.clone().addScaledVector(width,a*.083).addScaledVector(normal,b*.021);positions.push(q.x,q.y,q.z);uv.push(t,a*.5+.5);}}for(let i=0;i<count;i++)for(let j=0;j<4;j++){const a=i*4+j,b=i*4+(j+1)%4,c=a+4,d=b+4;indices.push(a,b,c,b,d,c);}indices.push(0,2,1,0,3,2,count*4,count*4+1,count*4+2,count*4,count*4+2,count*4+3);const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return mesh(g,strapMat);}
+ribbon(strapCurve);
+function rivet(angle,y){const normal=new THREE.Vector3(Math.sin(angle),0,Math.cos(angle));const mount=new THREE.Group();mount.position.copy(normal.clone().multiplyScalar(.584));mount.position.y=y;mount.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),normal);bottle.add(mount);const outer=mesh(new THREE.CylinderGeometry(.147,.147,.055,48),strapMat,mount);const head=mesh(new THREE.CylinderGeometry(.083,.088,.029,48),steel,mount);head.position.y=.041;const center=mesh(new THREE.CylinderGeometry(.037,.038,.005,32),new THREE.MeshStandardMaterial({color:'#778084',metalness:.8,roughness:.43}),mount);center.position.y=.058;}
+rivet(-Math.PI/4,2.045);rivet(-Math.PI*.77,2.11);
+// Paint the single vertical wordmark into the bottle's UV texture. This avoids
+// the surface interference of separate printed meshes at every zoom level.
+const printAtlas=document.createElement('canvas');printAtlas.width=4096;printAtlas.height=4096;
+const atlasContext=printAtlas.getContext('2d');atlasContext.fillStyle=ORANGE;atlasContext.fillRect(0,0,4096,4096);
+const printMin=-1.81,printHeight=3.48;
+const frontPrint=texture(768,3072,(c,w,h)=>{
+ c.translate(w/2,h/2);c.rotate(-Math.PI/2);c.fillStyle='#ffffff';c.textAlign='center';c.textBaseline='middle';
+ c.font='600 440px Arial, Helvetica, sans-serif';const maxWidth=2580,actual=c.measureText('Transform').width;c.scale(maxWidth/actual,1);c.fillText('Transform',0,12);
+});
+const printedWidth=.64,printedHeight=2.42,printedY=-.43,printedAngle=.58;
+const stampW=printedWidth/(2*Math.PI*.725)*4096,stampH=printedHeight/printHeight*4096;
+const centerX=printedAngle/(2*Math.PI)*4096,stampY=(1-(printedY+printedHeight/2-printMin)/printHeight)*4096;
+for(const shift of [-4096,0,4096])atlasContext.drawImage(frontPrint.image,centerX-stampW/2+shift,stampY,stampW,stampH);frontPrint.dispose();
+const atlasMap=new THREE.CanvasTexture(printAtlas);atlasMap.colorSpace=THREE.SRGBColorSpace;atlasMap.wrapS=THREE.RepeatWrapping;atlasMap.anisotropy=renderer.capabilities.getMaxAnisotropy();
+const bodyUV=body.geometry.attributes.uv,bodyP=body.geometry.attributes.position;for(let i=0;i<bodyP.count;i++)bodyUV.setY(i,(bodyP.getY(i)-printMin)/printHeight);bodyUV.needsUpdate=true;
+const printedEnamel=enamel.clone();printedEnamel.color.set('#ffffff');printedEnamel.map=atlasMap;body.material=printedEnamel;
+const contact=texture(256,256,(c,w,h)=>{const g=c.createRadialGradient(128,128,0,128,128,124);g.addColorStop(0,'rgba(11,12,12,.23)');g.addColorStop(.4,'rgba(11,12,12,.11)');g.addColorStop(1,'rgba(11,12,12,0)');c.fillStyle=g;c.fillRect(0,0,w,h);});
+const shadow=mesh(new THREE.PlaneGeometry(3.6,3.6),new THREE.MeshBasicMaterial({map:contact,transparent:true,depthWrite:false}),scene);shadow.rotation.x=-Math.PI/2;shadow.position.set(0,-1.84,0);
+let interacted=false,turn=null,phase=0,last=performance.now();
+function interaction(){interacted=true;controls.autoRotate=false;}
+function fit(){return Math.max(10.5,4.6/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov)/2)*camera.aspect));}
+function reset(){interaction();endRefill(false);turn=null;controls.enableDamping=false;controls.target.set(0,.45,0);camera.position.set(2.3,3.9,Math.min(18,fit()));bottle.rotation.set(0,0,0);controls.update();controls.enableDamping=true;}
+function flip(){interaction();const local=bottle.worldToLocal(camera.position.clone()),desired=Math.atan2(camera.position.x,camera.position.z)+(local.z>=0?Math.PI:0),delta=THREE.MathUtils.euclideanModulo(desired-bottle.rotation.y+Math.PI,Math.PI*2)-Math.PI;turn={from:bottle.rotation.y,to:bottle.rotation.y+delta,start:performance.now()};if(reduced){bottle.rotation.y=turn.to;turn=null;}}
+// Three small blue drops per refill, with no continuous stream or splash.
+// Meshes and materials are reused on every click.
+const waterGroup=new THREE.Group();bottle.add(waterGroup);waterGroup.visible=false;
+const dropGeometry=new THREE.SphereGeometry(1,20,16);
+const droplets=[];
+for(let i=0;i<3;i++){
+ const material=new THREE.MeshPhysicalMaterial({color:'#1689e8',roughness:.17,metalness:0,transparent:true,opacity:.94,clearcoat:.6,clearcoatRoughness:.15,envMapIntensity:.45,depthWrite:false});
+ const drop=new THREE.Mesh(dropGeometry,material);drop.visible=false;waterGroup.add(drop);droplets.push(drop);
+}
+let refillStart=null;
+const refillButton=document.querySelector('#refill');
+function endRefill(announce=true){refillStart=null;waterGroup.visible=false;refillButton.disabled=false;refillButton.textContent='Refill';if(announce)document.querySelector('#status').textContent='Refilled.';}
+function refill(){interaction();if(refillStart!==null)return;refillStart=performance.now();waterGroup.visible=true;refillButton.disabled=true;refillButton.textContent='Refilling…';document.querySelector('#status').textContent='Refilling. Three small blue drops fall from the cap.';updateRefill(refillStart);}
+function updateRefill(now){
+ if(refillStart===null)return;const t=(now-refillStart)/1000;
+ if(t>=2.05){endRefill();return;}
+ for(let i=0;i<droplets.length;i++){
+ const d=droplets[i],age=t-[0,.38,.81][i],life=1.05;
+ d.visible=age>=0&&age<life;if(!d.visible)continue;
+ const angle=[.28,.48,.17][i];
+ const radius=reduced?.60+i*.045:.592+.25*(1-Math.exp(-6*age));
+ const y=reduced?1.645-i*.09:1.65-.24*age-3*age*age;
+ d.position.set(Math.sin(angle)*radius,y,Math.cos(angle)*radius);
+ const size=[.043,.035,.039][i];d.scale.set(size,size*1.17,size);
+ d.material.opacity=.94*Math.min(1,age/.07)*Math.min(1,(life-age)/.25);
+ }
+}
+function zoom(factor){interaction();const v=camera.position.clone().sub(controls.target);camera.position.copy(controls.target).add(v.setLength(THREE.MathUtils.clamp(v.length()*factor,controls.minDistance,controls.maxDistance)));controls.update();}
+document.querySelector('#flip').onclick=flip;document.querySelector('#reset').onclick=reset;refillButton.onclick=refill;document.querySelector('#in').onclick=()=>zoom(.85);document.querySelector('#out').onclick=()=>zoom(1/.85);
+controls.addEventListener('start',()=>{interaction();turn=null;});window.addEventListener('pointerdown',interaction,{passive:true});window.addEventListener('wheel',interaction,{passive:true});
+window.addEventListener('keydown',e=>{if(e.target.closest('button'))return;let handled=true;const offset=camera.position.clone().sub(controls.target),s=new THREE.Spherical().setFromVector3(offset);switch(e.key.toLowerCase()){case 'f':flip();break;case 'r':reset();break;case 'w':refill();break;case '+':case '=':zoom(.85);break;case '-':zoom(1/.85);break;case 'arrowleft':s.theta-=.12;break;case 'arrowright':s.theta+=.12;break;case 'arrowup':s.phi=Math.max(.08,s.phi-.12);break;case 'arrowdown':s.phi=Math.min(Math.PI-.08,s.phi+.12);break;default:handled=false;}if(handled){e.preventDefault();interaction();if(e.key.startsWith('Arrow')){camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(s));controls.update();}}});
+reset();interacted=false;controls.autoRotate=!reduced;
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();document.querySelector('#error').textContent='The 3D view was interrupted. Reload to restore it.';});
+function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;if(turn){const t=Math.min(1,(now-turn.start)/850);bottle.rotation.y=THREE.MathUtils.lerp(turn.from,turn.to,t*t*(3-2*t));if(t===1)turn=null;}controls.autoRotate=!interacted&&!reduced;controls.update(dt);updateRefill(now);renderer.render(scene,camera);}requestAnimationFrame(animate);
+window.bottleStudy={get refilling(){return refillStart!==null;},get triangles(){return body.geometry.index.count/3;}};
+}catch(error){console.error(error);document.querySelector('#error').textContent='The 3D view could not load. Check that WebGL is enabled and cdn.jsdelivr.net is reachable, then reload.';}
+</script>
+</body>
+</html>
